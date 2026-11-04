@@ -65,5 +65,67 @@
       <!-- İŞ TÜRLERİ & TARİFELER SEKMESİ -->
       <section id="typesTab" class="tabpage hidden">
         <div class="panel"><h2>Yeni iş türü</h2><form id="typeForm"><label>İş türünün adı<input id="typeName" maxlength="80" placeholder="Örn. Kitap" required></label><button type="submit">İş türü ekle</button><p id="typeMsg" class="message"></p></form></div>
-        <div class="panel"><h2>Tarife belirle / güncelle</h2><p class="muted">Yeni tarife yalnızca bundan sonra ekleyeceğin kayıtlarda geçerli olur. Eski kayıtlar değişmez.</p><form id="tariffForm"><label>İş türü<select id="tariffType" required><option value="">İş
+        <div class="panel"><h2>Tarife belirle / güncelle</h2><p class="muted">Yeni tarife yalnızca bundan sonra ekleyeceğin kayıtlarda geçerli olur. Eski kayıtlar değişmez.</p><form id="tariffForm"><label>İş türü<select id="tariffType" required><option value="">İş türü seç</option></select></label><div class="grid2"><label>Paket adedi<input id="packageQty" type="number" min="0.01" step="0.01" placeholder="6" required></label><label>Paket ücreti (₺)<input id="packagePrice" type="number" min="0.01" step="0.01" placeholder="55" required></label></div><label>Geçerlilik başlangıcı<input id="tariffDate" type="date" required></label><button type="submit">Tarifeyi kaydet</button><p id="tariffMsg" class="message"></p></form></div>
+        <div class="panel"><h2>İş türlerin ve güncel tarifelerin</h2><div id="typeRows" class="rows"></div></div>
+        
+        <!-- Tarife Yönetimi -->
+        <div class="panel">
+          <h2>Tüm Tarifeler (Düzenle / Sil)</h2>
+          <div id="tariffManagementRows" class="rows"></div>
+        </div>
+      </section>
 
+      <!-- GEÇMİŞ SEKMESİ -->
+      <section id="historyTab" class="tabpage hidden">
+        <div class="panel">
+          <div class="sectionhead">
+            <div><h2>Kayıt geçmişi</h2><p class="muted">Tüm kayıtların, en yeniden eskiye</p></div>
+            <button id="refreshBtn" class="secondary small">Yenile</button>
+          </div>
+          <!-- Arama Filtresi -->
+          <div style="margin: 14px 0;">
+            <input id="historySearch" type="text" placeholder="İş türü, not veya tarihe göre ara...">
+          </div>
+          <div id="historyRows" class="rows"></div>
+        </div>
+      </section>
+    </section>
+    <footer>Verilerin hesabına bağlıdır. Güvenliğin için şifreni kimseyle paylaşma.</footer>
+  </main>
+
+  <!-- Kayıt Düzenleme Modalı -->
+  <div id="editModal" class="modal hidden" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999;">
+    <div class="panel" style="width:90%;max-width:450px;margin:0;">
+      <h2>Kayıt Düzenle</h2>
+      <form id="editEntryForm">
+        <input type="hidden" id="editEntryId">
+        <label>Adet<input id="editQuantity" type="number" min="0.01" step="0.01" required></label>
+        <label>Tarih<input id="editWorkDate" type="date" required></label>
+        <label>Not<input id="editNote" maxlength="160"></label>
+        <div class="actions" style="margin-top:14px;">
+          <button type="submit">Kaydet</button>
+          <button type="button" id="closeEditModal" class="secondary">İptal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tarife Düzenleme Modalı -->
+  <div id="editTariffModal" class="modal hidden" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:999;">
+    <div class="panel" style="width:90%;max-width:450px;margin:0;">
+      <h2>Tarife Düzenle</h2>
+      <form id="editTariffForm">
+        <input type="hidden" id="editTariffId">
+        <label>Paket Adedi<input id="editPackageQty" type="number" min="0.01" step="0.01" required></label>
+        <label>Paket Ücreti (₺)<input id="editPackagePrice" type="number" min="0.01" step="0.01" required></label>
+        <label>Geçerlilik Başlangıcı<input id="editTariffDate" type="date" required></label>
+        <div class="actions" style="margin-top:14px;">
+          <button type="submit">Tarifeyi Güncelle</button>
+          <button type="button" id="closeTariffModal" class="secondary">İptal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js?v=2"></script>
+</body></html>
