@@ -4,7 +4,7 @@
   const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
   const dateTR=s=>new Date(`${s}T12:00:00`).toLocaleDateString('tr-TR');
   const client=window.supabase?.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_PUBLISHABLE_KEY);
-  let user=null,types=[],tariffs=[],earnings=[];
+  let user=null,types=[],tariffs=[],earnings=[],monthlyGoal=localStorage.getItem('monthly_goal')||5000;
   const say=(id,msg)=>$(id).textContent=msg;
   const show=(id,on)=>$(id).classList.toggle('hidden',!on);
   if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
@@ -22,20 +22,181 @@
   function currentTariff(typeId,forDate=today()){return tariffs.filter(t=>t.work_type_id===typeId&&t.effective_from<=forDate).sort((a,b)=>b.effective_from.localeCompare(a.effective_from))[0]||null;}
   function render(){
     const opts='<option value="">İş türü seç</option>'+types.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');$('entryType').innerHTML=opts;$('tariffType').innerHTML=opts;
-    $('workDate').value=today();$('tariffDate').value=today();renderStats();renderTypes();renderHistory();calc();
+    $('workDate').value=today();$('tariffDate').value=today();renderStats();renderTypes();renderHistory();calc();renderTariffManagement();
   }
   function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   $('entryType').onchange=calc;$('quantity').oninput=calc;$('workDate').onchange=calc;
   function calc(){const t=currentTariff($('entryType').value,$('workDate').value||today());const q=Number($('quantity').value||0);if(!t){$('calculated').textContent=money(0);$('rateInfo').textContent='Bu tarih için tarife bulunamadı.';return;}const unit=Number(t.package_price)/Number(t.package_quantity);$('calculated').textContent=money(q*unit);$('rateInfo').textContent=`${t.package_quantity} adet = ${money(t.package_price)} · Birim ${money(unit)}`;}
+  
   $('entryForm').onsubmit=async e=>{e.preventDefault();const typeId=$('entryType').value,date=$('workDate').value,q=Number($('quantity').value),t=currentTariff(typeId,date);if(!t){say('entryMsg','Seçilen iş türü ve tarih için tarife yok. Önce tarife ekle.');return;}const unit=Number(t.package_price)/Number(t.package_quantity);const {error}=await client.from('earnings').insert({user_id:user.id,work_type_id:typeId,tariff_id:t.id,quantity:q,unit_rate:unit,total_amount:Number((q*unit).toFixed(2)),work_date:date,note:$('entryNote').value.trim()||null});if(error){say('entryMsg',error.message);return;}say('entryMsg','Kayıt eklendi.');$('quantity').value=1;$('entryNote').value='';await loadAll();};
   $('typeForm').onsubmit=async e=>{e.preventDefault();const name=$('typeName').value.trim();const {error}=await client.from('work_types').insert({user_id:user.id,name});say('typeMsg',error?.message||'İş türü eklendi.');if(!error){$('typeName').value='';await loadAll();}};
   $('tariffForm').onsubmit=async e=>{e.preventDefault();const typeId=$('tariffType').value;const {error}=await client.from('tariffs').insert({user_id:user.id,work_type_id:typeId,package_quantity:Number($('packageQty').value),package_price:Number($('packagePrice').value),effective_from:$('tariffDate').value});say('tariffMsg',error?.message||'Tarife kaydedildi. Eski kayıtların tutarı değişmedi.');if(!error){$('packageQty').value='';$('packagePrice').value='';await loadAll();}};
+
   function sum(list){return list.reduce((s,x)=>s+Number(x.total_amount),0)}
-  function renderStats(){const d=today(),now=new Date();const monday=new Date(now);monday.setDate(now.getDate()-(now.getDay()+6)%7);const weekStart=`${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;const month=d.slice(0,7);$('todayTotal').textContent=money(sum(earnings.filter(x=>x.work_date===d)));$('weekTotal').textContent=money(sum(earnings.filter(x=>x.work_date>=weekStart&&x.work_date<=d)));$('monthTotal').textContent=money(sum(earnings.filter(x=>x.work_date.startsWith(month))));$('allTotal').textContent=money(sum(earnings));renderReport();}
+  
+  function renderStats(){
+    const d=today(),now=new Date();const monday=new Date(now);monday.setDate(now.getDate()-(now.getDay()+6)%7);const weekStart=`${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;const month=d.slice(0,7);
+    const monthTotalVal = sum(earnings.filter(x=>x.work_date.startsWith(month)));
+    
+    $('todayTotal').textContent=money(sum(earnings.filter(x=>x.work_date===d)));
+    $('weekTotal').textContent=money(sum(earnings.filter(x=>x.work_date>=weekStart&&x.work_date<=d)));
+    $('monthTotal').textContent=money(monthTotalVal);
+    $('allTotal').textContent=money(sum(earnings));
+
+    // Hedef Paneli Hesaplama
+    const goalNum = Number(monthlyGoal);
+    const percentage = goalNum > 0 ? Math.min(100, Math.round((monthTotalVal / goalNum) * 100)) : 0;
+    $('monthlyGoalText').textContent = `${money(monthTotalVal)} / ${money(goalNum)}`;
+    $('goalPercentage').textContent = `%${percentage} Tamamlandı`;
+    $('goalProgressBar').style.width = `${percentage}%`;
+
+    renderReport();
+  }
+
   $('reportPeriod').onchange=renderReport;
-  function renderReport(){const mode=$('reportPeriod').value,d=today(),year=d.slice(0,4),month=d.slice(0,7);let list=earnings.filter(x=>mode==='all'||(mode==='day'&&x.work_date===d)||(mode==='month'&&x.work_date.startsWith(month))||(mode==='year'&&x.work_date.startsWith(year)));if(mode==='week'){const n=new Date();n.setDate(n.getDate()-(n.getDay()+6)%7);const start=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;list=earnings.filter(x=>x.work_date>=start&&x.work_date<=d);} $('reportTotal').textContent=money(sum(list));$('reportLabel').textContent=({day:'Bugünün toplamı',week:'Bu haftanın toplamı',month:'Bu ayın toplamı',year:'Bu yılın toplamı',all:'Tüm kayıtların toplamı'})[mode];const groups={};list.forEach(x=>{const k=mode==='day'?x.work_date:mode==='week'?x.work_date:mode==='month'?x.work_date.slice(0,7):mode==='year'?x.work_date.slice(0,7):x.work_date.slice(0,7);groups[k]=(groups[k]||0)+Number(x.total_amount)});$('reportRows').innerHTML=Object.entries(groups).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([k,v])=>`<div class="item"><div><strong>${escapeHtml(k)}</strong><small>${mode==='day'||mode==='week'?'Günlük toplam':'Dönem toplamı'}</small></div><span class="amount">${money(v)}</span></div>`).join('')||'<p class="muted">Bu dönemde henüz kayıt yok.</p>';}
+  function renderReport(){const mode=$('reportPeriod').value,d=today(),year=d.slice(0,4),month=d.slice(0,7);let list=earnings.filter(x=>mode==='all'||(mode==='day'&&x.work_date===d)||(mode==='month'&&x.work_date.startsWith(month))||(mode==='year'&&x.work_date.startsWith(year)));if(mode==='week'){const n=new Date();n.setDate(n.getDate()-(n.getDay()+6)%7);const start=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;list=earnings.filter(x=>x.work_date>=start&&x.work_date<=d);} $('reportTotal').textContent=money(sum(list));$('reportLabel').textContent=({day:'Bugünün toplamı',week:'Bu haftanın toplamı',month:'Bu ayın toplamı',year:'Bu yılın toplamı',all:'Tüm zamanlar'})[mode];const groups={};list.forEach(x=>{const k=mode==='day'?x.work_date:mode==='week'?x.work_date:mode==='month'?x.work_date.slice(0,7):mode==='year'?x.work_date.slice(0,7):x.work_date.slice(0,7);groups[k]=(groups[k]||0)+Number(x.total_amount)});$('reportRows').innerHTML=Object.entries(groups).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([k,v])=>`<div class="item"><div><strong>${escapeHtml(k)}</strong><small>${mode==='day'||mode==='week'?'Günlük toplam':'Dönem toplamı'}</small></div><span class="amount">${money(v)}</span></div>`).join('')||'<p class="muted">Bu dönemde henüz kayıt yok.</p>';}
   function renderTypes(){const rows=types.map(t=>{const tar=currentTariff(t.id);const history=tariffs.filter(x=>x.work_type_id===t.id).length;return `<div class="item"><div><strong>${escapeHtml(t.name)}</strong><small>${tar?`${tar.package_quantity} adet = ${money(tar.package_price)} · ${history} tarife kaydı`:'Henüz tarife yok'}</small></div><span class="amount">${tar?money(Number(tar.package_price)/Number(tar.package_quantity))+'/adet':'—'}</span></div>`});$('typeRows').innerHTML=rows.join('')||'<p class="muted">Henüz iş türü eklemedin.</p>';}
-  function renderHistory(){$('historyRows').innerHTML=earnings.map(x=>{const t=types.find(z=>z.id===x.work_type_id);return `<div class="item"><div><strong>${escapeHtml(t?.name||'Silinmiş iş türü')} · ${x.quantity} adet</strong><small>${dateTR(x.work_date)}${x.note?' · '+escapeHtml(x.note):''} · ${money(x.unit_rate)}/adet</small></div><span class="amount">${money(x.total_amount)}</span></div>`}).join('')||'<p class="muted">Henüz kazanç kaydı yok.</p>';}
+
+  // Tarife Yönetimi Listesi
+  function renderTariffManagement(){
+    const rows = tariffs.map(t=>{
+      const type = types.find(z=>z.id===t.work_type_id);
+      return `<div class="item">
+        <div>
+          <strong>${escapeHtml(type?.name || 'Silinmiş İş Türü')} · ${t.package_quantity} adet / ${money(t.package_price)}</strong>
+          <small>Geçerlilik: ${dateTR(t.effective_from)}</small>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="secondary small" onclick="window.editTariff('${t.id}')">Düzenle</button>
+          <button class="ghost small" style="color:#ff7777;" onclick="window.deleteTariff('${t.id}')">Sil</button>
+        </div>
+      </div>`;
+    }).join('');
+    $('tariffManagementRows').innerHTML = rows || '<p class="muted">Kayıtlı tarife bulunmuyor.</p>';
+  }
+
+  // Geçmiş Listesi ve Arama Filtresi
+  function renderHistory(){
+    const query = ($('historySearch').value||'').toLowerCase();
+    const filtered = earnings.filter(x=>{
+      const t = types.find(z=>z.id===x.work_type_id);
+      const name = (t?.name||'').toLowerCase();
+      const note = (x.note||'').toLowerCase();
+      const date = x.work_date;
+      return name.includes(query) || note.includes(query) || date.includes(query);
+    });
+
+    $('historyRows').innerHTML = filtered.map(x=>{
+      const t = types.find(z=>z.id===x.work_type_id);
+      return `<div class="item">
+        <div>
+          <strong>${escapeHtml(t?.name||'Silinmiş iş türü')} · ${x.quantity} adet</strong>
+          <small>${dateTR(x.work_date)}${x.note?' · '+escapeHtml(x.note):''} · ${money(x.unit_rate)}/adet</small>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="amount">${money(x.total_amount)}</span>
+          <button class="secondary small" onclick="window.editEntry('${x.id}')">Düzenle</button>
+          <button class="ghost small" style="color:#ff7777;" onclick="window.deleteEntry('${x.id}')">Sil</button>
+        </div>
+      </div>`;
+    }).join('')||'<p class="muted">Eşleşen kayıt bulunamadı.</p>';
+  }
+
+  $('historySearch').oninput = renderHistory;
+
+  // Hedef Belirleme Butonu
+  $('editGoalBtn').onclick = () => {
+    const val = prompt('Aylık kazanç hedefinizi girin (TL):', monthlyGoal);
+    if(val !== null && !isNaN(val) && Number(val) > 0){
+      monthlyGoal = Number(val);
+      localStorage.setItem('monthly_goal', monthlyGoal);
+      renderStats();
+    }
+  };
+
+  // Silme ve Düzenleme Fonksiyonları
+  window.deleteEntry = async (id) => {
+    if(!confirm('Bu kaydı silmek istediğinizden emin misiniz?')) return;
+    const {error} = await client.from('earnings').delete().eq('id', id);
+    if(error) alert(error.message);
+    else await loadAll();
+  };
+
+  window.editEntry = (id) => {
+    const item = earnings.find(x=>x.id===id);
+    if(!item) return;
+    $('editEntryId').value = item.id;
+    $('editQuantity').value = item.quantity;
+    $('editWorkDate').value = item.work_date;
+    $('editNote').value = item.note || '';
+    show('editModal', true);
+  };
+
+  $('closeEditModal').onclick = () => show('editModal', false);
+
+  $('editEntryForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const id = $('editEntryId').value;
+    const item = earnings.find(x=>x.id===id);
+    const q = Number($('editQuantity').value);
+    const date = $('editWorkDate').value;
+    const t = currentTariff(item.work_type_id, date);
+    
+    if(!t){alert('Seçilen tarih için geçerli bir tarife bulunamadı.');return;}
+    const unit = Number(t.package_price)/Number(t.package_quantity);
+    
+    const {error} = await client.from('earnings').update({
+      quantity: q,
+      tariff_id: t.id,
+      unit_rate: unit,
+      total_amount: Number((q*unit).toFixed(2)),
+      work_date: date,
+      note: $('editNote').value.trim()||null
+    }).eq('id', id);
+
+    if(error) alert(error.message);
+    else {
+      show('editModal', false);
+      await loadAll();
+    }
+  };
+
+  // Tarife Silme ve Düzenleme
+  window.deleteTariff = async (id) => {
+    if(!confirm('Bu tarifeyi silmek istiyor musunuz?')) return;
+    const {error} = await client.from('tariffs').delete().eq('id', id);
+    if(error) alert(error.message);
+    else await loadAll();
+  };
+
+  window.editTariff = (id) => {
+    const t = tariffs.find(x=>x.id===id);
+    if(!t) return;
+    $('editTariffId').value = t.id;
+    $('editPackageQty').value = t.package_quantity;
+    $('editPackagePrice').value = t.package_price;
+    $('editTariffDate').value = t.effective_from;
+    show('editTariffModal', true);
+  };
+
+  $('closeTariffModal').onclick = () => show('editTariffModal', false);
+
+  $('editTariffForm').onsubmit = async (e) => {
+    e.preventDefault();
+    const id = $('editTariffId').value;
+    const {error} = await client.from('tariffs').update({
+      package_quantity: Number($('editPackageQty').value),
+      package_price: Number($('editPackagePrice').value),
+      effective_from: $('editTariffDate').value
+    }).eq('id', id);
+
+    if(error) alert(error.message);
+    else {
+      show('editTariffModal', false);
+      await loadAll();
+    }
+  };
+
   $('refreshBtn').onclick=loadAll;
   client.auth.getSession().then(({data})=>{if(data.session){user=data.session.user;show('authView',false);show('appView',true);show('logoutBtn',true);loadAll();}});
 })();
