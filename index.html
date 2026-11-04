@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101827"><meta name="description" content="Kişisel iş ve kazanç takip defteri">
+  <link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg" type="image/svg+xml">
+  <title>Kazanç Defterim</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="top"><div><div class="eyebrow">KİŞİSEL TAKİP</div><h1>Kazanç Defterim</h1></div><button id="logoutBtn" class="ghost hidden">Çıkış</button></header>
+    <section id="authView" class="panel auth">
+      <h2>Hesabına giriş yap</h2><p class="muted">Kayıtların hesabında saklanır ve cihazların arasında eşitlenir.</p>
+      <label>E-posta<input id="email" type="email" autocomplete="email" placeholder="ornek@mail.com"></label>
+      <label>Şifre<input id="password" type="password" autocomplete="current-password" placeholder="En az 6 karakter"></label>
+      <div class="actions"><button id="loginBtn">Giriş yap</button><button id="signupBtn" class="secondary">Hesap oluştur</button></div>
+      <p id="authMsg" class="message" role="status"></p>
+    </section>
+    <section id="appView" class="hidden">
+      <nav class="tabs"><button class="tab active" data-tab="overview">Özet</button><button class="tab" data-tab="entries">Kayıt ekle</button><button class="tab" data-tab="types">İş türleri & tarifeler</button><button class="tab" data-tab="history">Geçmiş</button></nav>
+      <section id="overviewTab" class="tabpage">
+        <div class="stats"><article class="stat"><span>Bugün</span><strong id="todayTotal">₺0,00</strong></article><article class="stat"><span>Bu hafta</span><strong id="weekTotal">₺0,00</strong></article><article class="stat"><span>Bu ay</span><strong id="monthTotal">₺0,00</strong></article><article class="stat"><span>Genel toplam</span><strong id="allTotal">₺0,00</strong></article></div>
+        <div class="panel"><div class="sectionhead"><div><h2>Kazanç raporu</h2><p class="muted">Seçtiğin dönemin toplamı</p></div><select id="reportPeriod"><option value="day">Günlük</option><option value="week">Haftalık</option><option value="month" selected>Aylık</option><option value="year">Yıllık</option><option value="all">Tüm zamanlar</option></select></div><div class="reportline"><strong id="reportTotal">₺0,00</strong><span id="reportLabel" class="muted"></span></div><div id="reportRows" class="rows"></div></div>
+      </section>
+      <section id="entriesTab" class="tabpage hidden"><div class="panel"><h2>Yeni kazanç kaydı</h2><form id="entryForm">
+        <label>İş türü<select id="entryType" required><option value="">Önce iş türü ekle</option></select></label>
+        <div class="grid2"><label>Adet<input id="quantity" type="number" min="0.01" step="0.01" value="1" required></label><label>Tarih<input id="workDate" type="date" required></label></div>
+        <label>Not (isteğe bağlı)<input id="entryNote" maxlength="160" placeholder="Örn. dergi sayfaları"></label>
+        <div class="calc"><span>Hesaplanan kazanç</span><strong id="calculated">₺0,00</strong><small id="rateInfo">Tarife seçildiğinde hesaplanır.</small></div>
+        <button type="submit" id="saveEntryBtn">Kaydı ekle</button><p id="entryMsg" class="message"></p>
+      </form></div></section>
+      <section id="typesTab" class="tabpage hidden"><div class="panel"><h2>Yeni iş türü</h2><form id="typeForm"><label>İş türünün adı<input id="typeName" maxlength="80" placeholder="Örn. Kitap" required></label><button type="submit">İş türü ekle</button><p id="typeMsg" class="message"></p></form></div><div class="panel"><h2>Tarife belirle / güncelle</h2><p class="muted">Yeni tarife yalnızca bundan sonra ekleyeceğin kayıtlarda geçerli olur. Eski kayıtlar değişmez.</p><form id="tariffForm"><label>İş türü<select id="tariffType" required><option value="">İş türü seç</option></select></label><div class="grid2"><label>Paket adedi<input id="packageQty" type="number" min="0.01" step="0.01" placeholder="6" required></label><label>Paket ücreti (₺)<input id="packagePrice" type="number" min="0.01" step="0.01" placeholder="55" required></label></div><label>Geçerlilik başlangıcı<input id="tariffDate" type="date" required></label><button type="submit">Tarifeyi kaydet</button><p id="tariffMsg" class="message"></p></form></div><div class="panel"><h2>İş türlerin ve güncel tarifelerin</h2><div id="typeRows" class="rows"></div></div></section>
+      <section id="historyTab" class="tabpage hidden"><div class="panel"><div class="sectionhead"><div><h2>Kayıt geçmişi</h2><p class="muted">Tüm kayıtların, en yeniden eskiye</p></div><button id="refreshBtn" class="secondary small">Yenile</button></div><div id="historyRows" class="rows"></div></div></section>
+    </section>
+    <footer>Verilerin hesabına bağlıdır. Güvenliğin için şifreni kimseyle paylaşma.</footer>
+  </main>
+  <script src="app.js"></script>
+</body></html>
