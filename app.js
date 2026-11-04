@@ -7,7 +7,6 @@
   let user=null,types=[],tariffs=[],earnings=[],monthlyGoal=localStorage.getItem('monthly_goal')||5000;
   const say=(id,msg)=>$(id).textContent=msg;
   const show=(id,on)=>$(id).classList.toggle('hidden',!on);
-  if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
   if(!client){say('authMsg','Bağlantı ayarları yüklenemedi.');return;}
   $('loginBtn').onclick=async()=>{say('authMsg','Giriş yapılıyor…');const {error}=await client.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});say('authMsg',error?.message||'');};
   $('signupBtn').onclick=async()=>{say('authMsg','Hesap oluşturuluyor…');const {data,error}=await client.auth.signUp({email:$('email').value.trim(),password:$('password').value,options:{emailRedirectTo:location.origin+location.pathname}});say('authMsg',error?.message||(data.session?'Hesap oluşturuldu.':'E-posta doğrulama bağlantısı gönderildi. Gelen kutunu kontrol et.'));};
