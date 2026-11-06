@@ -8,7 +8,16 @@
   const say=(id,msg)=>$(id).textContent=msg;
   const show=(id,on)=>$(id).classList.toggle('hidden',!on);
   if(!client){say('authMsg','Bağlantı ayarları yüklenemedi.');return;}
-  $('loginBtn').onclick=async()=>{say('authMsg','Giriş yapılıyor…');const {error}=await client.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});say('authMsg',error?.message||'');};
+  $('loginBtn').onclick=async()=>{
+    try {
+      say('authMsg','Giriş yapılıyor…');
+      const email = $('email').value.trim();
+      const password = $('password').value;
+      if(!email || !password) { say('authMsg', 'E-posta ve şifre boş olamaz.'); return; }
+      const { error } = await client.auth.signInWithPassword({ email, password });
+      if(error) say('authMsg', 'Hata: ' + error.message);
+    } catch(err) { say('authMsg', 'Bağlantı hatası: ' + err.message); }
+  };
   $('signupBtn').onclick=async()=>{say('authMsg','Hesap oluşturuluyor…');const {data,error}=await client.auth.signUp({email:$('email').value.trim(),password:$('password').value,options:{emailRedirectTo:location.origin+location.pathname}});say('authMsg',error?.message||(data.session?'Hesap oluşturuldu.':'E-posta doğrulama bağlantısı gönderildi. Gelen kutunu kontrol et.'));};
   $('logoutBtn').onclick=()=>client.auth.signOut();
   client.auth.onAuthStateChange((_event,session)=>{user=session?.user||null;show('authView',!user);show('appView',!!user);show('logoutBtn',!!user);if(user)loadAll();});
@@ -21,7 +30,7 @@
   function currentTariff(typeId,forDate=today()){return tariffs.filter(t=>t.work_type_id===typeId&&t.effective_from<=forDate).sort((a,b)=>b.effective_from.localeCompare(a.effective_from))[0]||null;}
   function render(){
     const opts='<option value="">İş türü seç</option>'+types.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');$('entryType').innerHTML=opts;$('tariffType').innerHTML=opts;
-    $('workDate').value=today();$('tariffDate').value=today();renderStats();renderTypes();renderHistory();calc();renderTariffManagement();
+    $('workDate').value=today();$('tariffDate').value=today();renderStats();renderTypes();renderHistory();calc();renderTariffManagement();renderGoals();
   }
   function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   $('entryType').onchange=calc;$('quantity').oninput=calc;$('workDate').onchange=calc;
@@ -42,21 +51,78 @@
     $('monthTotal').textContent=money(monthTotalVal);
     $('allTotal').textContent=money(sum(earnings));
 
-    // Hedef Paneli Hesaplama
+    renderReport();
+  }
+
+  // Hedefler Sekmesi ve Set Bazlı Dağılım Hesaplama
+  function renderGoals(){
     const goalNum = Number(monthlyGoal);
+    const d=today(), month = d.slice(0, 7);
+    const monthTotalVal = sum(earnings.filter(x=>x.work_date.startsWith(month)));
     const percentage = goalNum > 0 ? Math.min(100, Math.round((monthTotalVal / goalNum) * 100)) : 0;
+    
     $('monthlyGoalText').textContent = `${money(monthTotalVal)} / ${money(goalNum)}`;
     $('goalPercentage').textContent = `%${percentage} Tamamlandı`;
     $('goalProgressBar').style.width = `${percentage}%`;
 
-    renderReport();
+    const rows = types.map(t=>{
+      const tar = currentTariff(t.id);
+      if(!tar || Number(tar.package_quantity)<=0 || Number(tar.package_price)<=0){
+        return `<div class="item"><div><strong>${escapeHtml(t.name)}</strong><small>Aktif tarife bulunamadı</small></div><span class="amount">—</span></div>`;
+      }
+      const unitPrice = Number(tar.package_price) / Number(tar.package_quantity);
+      if(unitPrice <= 0) return '';
+
+      const totalUnitsNeededMonthly = goalNum / unitPrice;
+      const dailyUnitsNeeded = totalUnitsNeededMonthly / 30; // 30 gün baz alınarak
+
+      return `<div class="item" style="flex-direction:column; align-items:flex-start; gap:6px;">
+        <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+          <strong>${escapeHtml(t.name)}</strong>
+          <span class="amount" style="font-size:0.95rem;">Birim: ${money(unitPrice)}</span>
+        </div>
+        <small style="color:var(--muted); line-height:1.4;">
+          🎯 Bu hedefe sadece bu setle ulaşmak için:<br>
+          • Ayda toplam <strong>${totalUnitsNeededMonthly.toFixed(1)} adet</strong> (${tar.package_quantity}'li paketlerden <strong>${(totalUnitsNeededMonthly / Number(tar.package_quantity)).toFixed(1)} paket</strong>)<br>
+          • Günde yaklaşık <strong>${dailyUnitsNeeded.toFixed(1)} adet</strong> girmen gerekiyor.
+        </small>
+      </div>`;
+    }).join('');
+
+    $('goalBreakdownRows').innerHTML = rows || '<p class="muted">Henüz iş türü veya tarife eklenmemiş.</p>';
   }
 
   $('reportPeriod').onchange=renderReport;
   function renderReport(){const mode=$('reportPeriod').value,d=today(),year=d.slice(0,4),month=d.slice(0,7);let list=earnings.filter(x=>mode==='all'||(mode==='day'&&x.work_date===d)||(mode==='month'&&x.work_date.startsWith(month))||(mode==='year'&&x.work_date.startsWith(year)));if(mode==='week'){const n=new Date();n.setDate(n.getDate()-(n.getDay()+6)%7);const start=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;list=earnings.filter(x=>x.work_date>=start&&x.work_date<=d);} $('reportTotal').textContent=money(sum(list));$('reportLabel').textContent=({day:'Bugünün toplamı',week:'Bu haftanın toplamı',month:'Bu ayın toplamı',year:'Bu yılın toplamı',all:'Tüm zamanlar'})[mode];const groups={};list.forEach(x=>{const k=mode==='day'?x.work_date:mode==='week'?x.work_date:mode==='month'?x.work_date.slice(0,7):mode==='year'?x.work_date.slice(0,7):x.work_date.slice(0,7);groups[k]=(groups[k]||0)+Number(x.total_amount)});$('reportRows').innerHTML=Object.entries(groups).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([k,v])=>`<div class="item"><div><strong>${escapeHtml(k)}</strong><small>${mode==='day'||mode==='week'?'Günlük toplam':'Dönem toplamı'}</small></div><span class="amount">${money(v)}</span></div>`).join('')||'<p class="muted">Bu dönemde henüz kayıt yok.</p>';}
-  function renderTypes(){const rows=types.map(t=>{const tar=currentTariff(t.id);const history=tariffs.filter(x=>x.work_type_id===t.id).length;return `<div class="item"><div><strong>${escapeHtml(t.name)}</strong><small>${tar?`${tar.package_quantity} adet = ${money(tar.package_price)} · ${history} tarife kaydı`:'Henüz tarife yok'}</small></div><span class="amount">${tar?money(Number(tar.package_price)/Number(tar.package_quantity))+'/adet':'—'}</span></div>`});$('typeRows').innerHTML=rows.join('')||'<p class="muted">Henüz iş türü eklemedin.</p>';}
+  
+  function renderTypes(){
+    const rows=types.map(t=>{
+      const tar=currentTariff(t.id);
+      const history=tariffs.filter(x=>x.work_type_id===t.id).length;
+      return `<div class="item">
+        <div>
+          <strong>${escapeHtml(t.name)}</strong>
+          <small>${tar?`${tar.package_quantity} adet = ${money(tar.package_price)} · ${history} tarife kaydı`:'Henüz tarife yok'}</small>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="amount">${tar?money(Number(tar.package_price)/Number(tar.package_quantity))+'/adet':'—'}</span>
+          <button class="ghost small" style="color:#ff7777;" onclick="window.deleteWorkType('${t.id}')">Sil</button>
+        </div>
+      </div>`
+    });
+    $('typeRows').innerHTML=rows.join('')||'<p class="muted">Henüz iş türü eklemedin.</p>';
+  }
 
-  // Tarife Yönetimi Listesi
+  // İş Türü Silme Fonksiyonu
+  window.deleteWorkType = async (id) => {
+    if(!confirm('Bu iş türünü silmek istiyor musunuz? Bu türe ait tüm tarifeler ve geçmiş kayıtlar da silinecektir!')) return;
+    await client.from('tariffs').delete().eq('work_type_id', id);
+    await client.from('earnings').delete().eq('work_type_id', id);
+    const {error} = await client.from('work_types').delete().eq('id', id);
+    if(error) alert(error.message);
+    else await loadAll();
+  };
+
   function renderTariffManagement(){
     const rows = tariffs.map(t=>{
       const type = types.find(z=>z.id===t.work_type_id);
@@ -74,7 +140,6 @@
     $('tariffManagementRows').innerHTML = rows || '<p class="muted">Kayıtlı tarife bulunmuyor.</p>';
   }
 
-  // Geçmiş Listesi ve Arama Filtresi
   function renderHistory(){
     const query = ($('historySearch').value||'').toLowerCase();
     const filtered = earnings.filter(x=>{
@@ -103,17 +168,15 @@
 
   $('historySearch').oninput = renderHistory;
 
-  // Hedef Belirleme Butonu
   $('editGoalBtn').onclick = () => {
     const val = prompt('Aylık kazanç hedefinizi girin (TL):', monthlyGoal);
     if(val !== null && !isNaN(val) && Number(val) > 0){
       monthlyGoal = Number(val);
       localStorage.setItem('monthly_goal', monthlyGoal);
-      renderStats();
+      renderGoals();
     }
   };
 
-  // Silme ve Düzenleme Fonksiyonları
   window.deleteEntry = async (id) => {
     if(!confirm('Bu kaydı silmek istediğinizden emin misiniz?')) return;
     const {error} = await client.from('earnings').delete().eq('id', id);
@@ -160,7 +223,6 @@
     }
   };
 
-  // Tarife Silme ve Düzenleme
   window.deleteTariff = async (id) => {
     if(!confirm('Bu tarifeyi silmek istiyor musunuz?')) return;
     const {error} = await client.from('tariffs').delete().eq('id', id);
