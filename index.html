@@ -20,7 +20,13 @@
       <p id="authMsg" class="message" role="status"></p>
     </section>
     <section id="appView" class="hidden">
-      <nav class="tabs"><button class="tab active" data-tab="overview">Özet</button><button class="tab" data-tab="entries">Kayıt ekle</button><button class="tab" data-tab="types">İş türleri & tarifeler</button><button class="tab" data-tab="history">Geçmiş</button></nav>
+      <nav class="tabs">
+        <button class="tab active" data-tab="overview">Özet</button>
+        <button class="tab" data-tab="entries">Kayıt ekle</button>
+        <button class="tab" data-tab="types">İş türleri & tarifeler</button>
+        <button class="tab" data-tab="goals">Hedefler</button>
+        <button class="tab" data-tab="history">Geçmiş</button>
+      </nav>
       
       <!-- ÖZET SEKMESİ -->
       <section id="overviewTab" class="tabpage">
@@ -31,7 +37,13 @@
           <article class="stat"><span>Genel toplam</span><strong id="allTotal">₺0,00</strong></article>
         </div>
 
-        <!-- Bütçe / Hedef Paneli -->
+        <div class="panel">
+          <div class="sectionhead"><div><h2>Kazanç raporu</h2><p class="muted">Seçtiğin dönemin toplamı</p></div><select id="reportPeriod"><option value="day">Günlük</option><option value="week">Haftalık</option><option value="month" selected>Aylık</option><option value="year">Yıllık</option><option value="all">Tüm zamanlar</option></select></div><div class="reportline"><strong id="reportTotal">₺0,00</strong><span id="reportLabel" class="muted"></span></div><div id="reportRows" class="rows"></div>
+        </div>
+      </section>
+
+      <!-- HEDEFLER SEKMESİ -->
+      <section id="goalsTab" class="tabpage hidden">
         <div class="panel">
           <div class="sectionhead">
             <div><h2>Aylık Kazanç Hedefi</h2><p class="muted">Bu ay için belirlediğin hedef durumun</p></div>
@@ -49,7 +61,10 @@
         </div>
 
         <div class="panel">
-          <div class="sectionhead"><div><h2>Kazanç raporu</h2><p class="muted">Seçtiğin dönemin toplamı</p></div><select id="reportPeriod"><option value="day">Günlük</option><option value="week">Haftalık</option><option value="month" selected>Aylık</option><option value="year">Yıllık</option><option value="all">Tüm zamanlar</option></select></div><div class="reportline"><strong id="reportTotal">₺0,00</strong><span id="reportLabel" class="muted"></span></div><div id="reportRows" class="rows"></div>
+          <div class="sectionhead">
+            <div><h2>Set Bazlı Hedef Dağılımı</h2><p class="muted">Aylık hedefine ulaşmak için her bir setten gereken miktar</p></div>
+          </div>
+          <div id="goalBreakdownRows" class="rows" style="margin-top:14px;"></div>
         </div>
       </section>
 
@@ -68,7 +83,6 @@
         <div class="panel"><h2>Tarife belirle / güncelle</h2><p class="muted">Yeni tarife yalnızca bundan sonra ekleyeceğin kayıtlarda geçerli olur. Eski kayıtlar değişmez.</p><form id="tariffForm"><label>İş türü<select id="tariffType" required><option value="">İş türü seç</option></select></label><div class="grid2"><label>Paket adedi<input id="packageQty" type="number" min="0.01" step="0.01" placeholder="6" required></label><label>Paket ücreti (₺)<input id="packagePrice" type="number" min="0.01" step="0.01" placeholder="55" required></label></div><label>Geçerlilik başlangıcı<input id="tariffDate" type="date" required></label><button type="submit">Tarifeyi kaydet</button><p id="tariffMsg" class="message"></p></form></div>
         <div class="panel"><h2>İş türlerin ve güncel tarifelerin</h2><div id="typeRows" class="rows"></div></div>
         
-        <!-- Tarife Yönetimi -->
         <div class="panel">
           <h2>Tüm Tarifeler (Düzenle / Sil)</h2>
           <div id="tariffManagementRows" class="rows"></div>
@@ -82,7 +96,6 @@
             <div><h2>Kayıt geçmişi</h2><p class="muted">Tüm kayıtların, en yeniden eskiye</p></div>
             <button id="refreshBtn" class="secondary small">Yenile</button>
           </div>
-          <!-- Arama Filtresi -->
           <div style="margin: 14px 0;">
             <input id="historySearch" type="text" placeholder="İş türü, not veya tarihe göre ara...">
           </div>
@@ -127,5 +140,5 @@
     </div>
   </div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body></html>
