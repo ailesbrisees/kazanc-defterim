@@ -73,8 +73,8 @@
       if(unitPrice <= 0) return '';
 
       const totalUnitsNeededMonthly = goalNum / unitPrice;
-      const weeklyUnitsNeeded = totalUnitsNeededMonthly / 4.29; // Aylık ortalama hafta sayısı baz alınarak
-      const dailyUnitsNeeded = totalUnitsNeededMonthly / 30; // 30 gün baz alınarak
+      const weeklyUnitsNeeded = totalUnitsNeededMonthly / 4.29; 
+      const dailyUnitsNeeded = totalUnitsNeededMonthly / 30; 
 
       return `<div class="item" style="flex-direction:column; align-items:flex-start; gap:6px;">
         <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
@@ -90,8 +90,6 @@
     }).join('');
 
     $('goalBreakdownRows').innerHTML = rows || '<p class="muted">Henüz iş türü veya tarife eklenmemiş.</p>';
-  }
-
   }
 
   $('reportPeriod').onchange=renderReport;
@@ -115,7 +113,6 @@
     $('typeRows').innerHTML=rows.join('')||'<p class="muted">Henüz iş türü eklemedin.</p>';
   }
 
-  // İş Türü Silme Fonksiyonu
   window.deleteWorkType = async (id) => {
     if(!confirm('Bu iş türünü silmek istiyor musunuz? Bu türe ait tüm tarifeler ve geçmiş kayıtlar da silinecektir!')) return;
     await client.from('tariffs').delete().eq('work_type_id', id);
