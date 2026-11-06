@@ -53,8 +53,7 @@
 
     renderReport();
   }
-
-  // Hedefler Sekmesi ve Set Bazlı Dağılım Hesaplama
+  
   function renderGoals(){
     const goalNum = Number(monthlyGoal);
     const d=today(), month = d.slice(0, 7);
@@ -74,6 +73,7 @@
       if(unitPrice <= 0) return '';
 
       const totalUnitsNeededMonthly = goalNum / unitPrice;
+      const weeklyUnitsNeeded = totalUnitsNeededMonthly / 4.29; // Aylık ortalama hafta sayısı baz alınarak
       const dailyUnitsNeeded = totalUnitsNeededMonthly / 30; // 30 gün baz alınarak
 
       return `<div class="item" style="flex-direction:column; align-items:flex-start; gap:6px;">
@@ -81,15 +81,17 @@
           <strong>${escapeHtml(t.name)}</strong>
           <span class="amount" style="font-size:0.95rem;">Birim: ${money(unitPrice)}</span>
         </div>
-        <small style="color:var(--muted); line-height:1.4;">
-          🎯 Bu hedefe sadece bu setle ulaşmak için:<br>
-          • Ayda toplam <strong>${totalUnitsNeededMonthly.toFixed(1)} adet</strong> (${tar.package_quantity}'li paketlerden <strong>${(totalUnitsNeededMonthly / Number(tar.package_quantity)).toFixed(1)} paket</strong>)<br>
-          • Günde yaklaşık <strong>${dailyUnitsNeeded.toFixed(1)} adet</strong> girmen gerekiyor.
-        </small>
+        <div style="color:var(--muted); font-size:0.85rem; display:flex; flex-direction:column; gap:3px; width:100%; margin-top:2px;">
+          <div>📅 <strong>Ayda girmem gereken:</strong> ${totalUnitsNeededMonthly.toFixed(1)} adet</div>
+          <div>📆 <strong>Haftada girmem gereken:</strong> ${weeklyUnitsNeeded.toFixed(1)} adet</div>
+          <div>☀️ <strong>Günde girmem gereken:</strong> ${dailyUnitsNeeded.toFixed(1)} adet</div>
+        </div>
       </div>`;
     }).join('');
 
     $('goalBreakdownRows').innerHTML = rows || '<p class="muted">Henüz iş türü veya tarife eklenmemiş.</p>';
+  }
+
   }
 
   $('reportPeriod').onchange=renderReport;
