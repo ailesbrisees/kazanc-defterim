@@ -54,15 +54,25 @@
     renderReport();
   }
   
-  function renderGoals(){
+    function renderGoals(){
     const goalNum = Number(monthlyGoal);
     const d=today(), month = d.slice(0, 7);
+    
+    // Bu haftanın başlangıcını hesapla (Pazartesi)
+    const now=new Date();
+    const monday=new Date(now);
+    monday.setDate(now.getDate()-(now.getDay()+6)%7);
+    const weekStart=`${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;
+
     const monthTotalVal = sum(earnings.filter(x=>x.work_date.startsWith(month)));
     const percentage = goalNum > 0 ? Math.min(100, Math.round((monthTotalVal / goalNum) * 100)) : 0;
     
     $('monthlyGoalText').textContent = `${money(monthTotalVal)} / ${money(goalNum)}`;
     $('goalPercentage').textContent = `%${percentage} Tamamlandı`;
     $('goalProgressBar').style.width = `${percentage}%`;
+
+    // Miktar toplamak için yardımcı fonksiyon
+    const sumQty = list => list.reduce((s,x)=>s+Number(x.quantity||0),0);
 
     const rows = types.map(t=>{
       const tar = currentTariff(t.id);
@@ -72,9 +82,20 @@
       const unitPrice = Number(tar.package_price) / Number(tar.package_quantity);
       if(unitPrice <= 0) return '';
 
+      // Hedeflenen toplam adetler
       const totalUnitsNeededMonthly = goalNum / unitPrice;
       const weeklyUnitsNeeded = totalUnitsNeededMonthly / 4.29; 
       const dailyUnitsNeeded = totalUnitsNeededMonthly / 30; 
+
+      // Bu iş türü için gerçekleşen (yapılan) adetler
+      const producedMonth = sumQty(earnings.filter(x => x.work_type_id === t.id && x.work_date.startsWith(month)));
+      const producedWeek = sumQty(earnings.filter(x => x.work_type_id === t.id && x.work_date >= weekStart && x.work_date <= d));
+      const producedDay = sumQty(earnings.filter(x => x.work_type_id === t.id && x.work_date === d));
+
+      // Kalan adetler (0'ın altına düşmemesi için Math.max kullanıyoruz)
+      const remainingMonth = Math.max(0, totalUnitsNeededMonthly - producedMonth);
+      const remainingWeek = Math.max(0, weeklyUnitsNeeded - producedWeek);
+      const remainingDay = Math.max(0, dailyUnitsNeeded - producedDay);
 
       return `<div class="item" style="flex-direction:column; align-items:flex-start; gap:6px;">
         <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
@@ -82,15 +103,15 @@
           <span class="amount" style="font-size:0.95rem;">Birim: ${money(unitPrice)}</span>
         </div>
         <div style="color:var(--muted); font-size:0.85rem; display:flex; flex-direction:column; gap:3px; width:100%; margin-top:2px;">
-          <div>📅 <strong>Ayda girmem gereken:</strong> ${totalUnitsNeededMonthly.toFixed(1)} adet</div>
-          <div>📆 <strong>Haftada girmem gereken:</strong> ${weeklyUnitsNeeded.toFixed(1)} adet</div>
-          <div>☀️ <strong>Günde girmem gereken:</strong> ${dailyUnitsNeeded.toFixed(1)} adet</div>
+          <div>📅 <strong>Ayda kalan:</strong> ${remainingMonth.toFixed(1)} adet <span style="font-size:0.75rem; opacity:0.7;">(Yapılan: ${producedMonth.toFixed(1)})</span></div>
+          <div>📆 <strong>Haftada kalan:</strong> ${remainingWeek.toFixed(1)} adet <span style="font-size:0.75rem; opacity:0.7;">(Yapılan: ${producedWeek.toFixed(1)})</span></div>
+          <div>☀️ <strong>Günde kalan:</strong> ${remainingDay.toFixed(1)} adet <span style="font-size:0.75rem; opacity:0.7;">(Yapılan: ${producedDay.toFixed(1)})</span></div>
         </div>
       </div>`;
     }).join('');
 
     $('goalBreakdownRows').innerHTML = rows || '<p class="muted">Henüz iş türü veya tarife eklenmemiş.</p>';
-  }
+    }
 
   $('reportPeriod').onchange=renderReport;
   function renderReport(){const mode=$('reportPeriod').value,d=today(),year=d.slice(0,4),month=d.slice(0,7);let list=earnings.filter(x=>mode==='all'||(mode==='day'&&x.work_date===d)||(mode==='month'&&x.work_date.startsWith(month))||(mode==='year'&&x.work_date.startsWith(year)));if(mode==='week'){const n=new Date();n.setDate(n.getDate()-(n.getDay()+6)%7);const start=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;list=earnings.filter(x=>x.work_date>=start&&x.work_date<=d);} $('reportTotal').textContent=money(sum(list));$('reportLabel').textContent=({day:'Bugünün toplamı',week:'Bu haftanın toplamı',month:'Bu ayın toplamı',year:'Bu yılın toplamı',all:'Tüm zamanlar'})[mode];const groups={};list.forEach(x=>{const k=mode==='day'?x.work_date:mode==='week'?x.work_date:mode==='month'?x.work_date.slice(0,7):mode==='year'?x.work_date.slice(0,7):x.work_date.slice(0,7);groups[k]=(groups[k]||0)+Number(x.total_amount)});$('reportRows').innerHTML=Object.entries(groups).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([k,v])=>`<div class="item"><div><strong>${escapeHtml(k)}</strong><small>${mode==='day'||mode==='week'?'Günlük toplam':'Dönem toplamı'}</small></div><span class="amount">${money(v)}</span></div>`).join('')||'<p class="muted">Bu dönemde henüz kayıt yok.</p>';}
