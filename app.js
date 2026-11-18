@@ -54,31 +54,40 @@
     renderReport();
   }
   
-      function renderGoals(){
+        function renderGoals(){
     const goalNum = Number(monthlyGoal);
     const d = today(), month = d.slice(0, 7);
     
-    // Bugünün tarihine göre ayın kalan gün sayısını hesapla (bugün dahil)
+    // Ayın toplam günü ve bugün itibarıyla kalan gün sayısı (bugün dahil)
     const now = new Date();
     const year = now.getFullYear();
     const monthIndex = now.getMonth();
-    const totalDaysInMonth = new Date(year, monthIndex + 1, 0).getDate(); // Ayın toplam günü (örn: 30 veya 31)
-    const currentDay = now.getDate(); // Ayın kaçıncı günü (örn: 8)
-    const remainingDays = Math.max(1, totalDaysInMonth - currentDay + 1); // Ayın sonuna kadar kalan gün sayısı
+    const totalDaysInMonth = new Date(year, monthIndex + 1, 0).getDate(); // Örn: 30 veya 31
+    const currentDay = now.getDate(); // Ayın kaçıncı günü
+    const remainingDays = Math.max(1, totalDaysInMonth - currentDay + 1); // Ayın sonuna kadar kalan gün
 
-    // Bu haftanın başlangıcı (Pazartesi)
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - (now.getDay() + 6) % 7);
-    const weekStart = `${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;
-
+    // Bu ay şimdiye kadar kazanılan toplam para
     const monthTotalVal = sum(earnings.filter(x => x.work_date.startsWith(month)));
     const percentage = goalNum > 0 ? Math.min(100, Math.round((monthTotalVal / goalNum) * 100)) : 0;
     
+    // Kalan para miktarı
+    const remainingMoney = Math.max(0, goalNum - monthTotalVal);
+    // Günlük kazanılması gereken para (Kalan para / Kalan gün)
+    const dailyMoneyNeeded = remainingMoney / remainingDays;
+
+    // Üst özet alanları
     $('monthlyGoalText').textContent = `${money(monthTotalVal)} / ${money(goalNum)}`;
     $('goalPercentage').textContent = `%${percentage} Tamamlandı`;
     $('goalProgressBar').style.width = `${percentage}%`;
 
+    // Eğer sayfada günlük gereken para için ayrı bir alan varsa güncelleyebiliriz, 
+    // yoksa aşağıda kartın içine dinamik olarak yazdırıyoruz.
+
+    // İş türlerine göre adet bazlı kalan hesaplamaları (önceki özellik)
     const sumQty = list => list.reduce((s, x) => s + Number(x.quantity || 0), 0);
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - (now.getDay() + 6) % 7);
+    const weekStart = `${monday.getFullYear()}-${String(monday.getMonth()+1).padStart(2,'0')}-${String(monday.getDate()).padStart(2,'0')}`;
 
     const rows = types.map(t => {
       const tar = currentTariff(t.id);
@@ -88,23 +97,15 @@
       const unitPrice = Number(tar.package_price) / Number(tar.package_quantity);
       if(unitPrice <= 0) return '';
 
-      // Toplam hedeflenen adetler
       const totalUnitsNeededMonthly = goalNum / unitPrice;
       const weeklyUnitsNeeded = totalUnitsNeededMonthly / 4.29; 
 
-      // Bu iş türü için bu ay yapılan toplam adet
       const producedMonth = sumQty(earnings.filter(x => x.work_type_id === t.id && x.work_date.startsWith(month)));
-      // Bu hafta yapılan adet
       const producedWeek = sumQty(earnings.filter(x => x.work_type_id === t.id && x.work_date >= weekStart && x.work_date <= d));
-      // Bugün yapılan adet
       const producedDay = sumQty(earnings.filter(x => x.work_type_id === t.id && x.work_date === d));
 
-      // Kalan adetler
       const remainingMonth = Math.max(0, totalUnitsNeededMonthly - producedMonth);
       const remainingWeek = Math.max(0, weeklyUnitsNeeded - producedWeek);
-      
-      // GÜNLÜK HEDEF: Aylık kalan adeti, ayın kalan gün sayısına bölüyoruz!
-      // Böylece her gün kalan günlere göre otomatik güncellenir.
       const remainingDay = remainingMonth / remainingDays;
 
       return `<div class="item" style="flex-direction:column; align-items:flex-start; gap:6px;">
@@ -120,8 +121,22 @@
       </div>`;
     }).join('');
 
-    $('goalBreakdownRows').innerHTML = rows || '<p class="muted">Henüz iş türü veya tarife eklenmemiş.</p>';
-      }
+    // HTML içinde genel para özeti göstermek istersek goalBreakdownRows üstüne veya içine ekleyebiliriz:
+    const summaryCard = `
+      <div class="item" style="background: rgba(74, 222, 128, 0.05); border: 1px solid rgba(74, 222, 128, 0.2); flex-direction:column; align-items:flex-start; gap:6px; margin-bottom: 12px;">
+        <div style="width:100%; display:flex; justify-content:space-between; align-items:center;">
+          <strong>🎯 Genel Para Hedefi Öngörüsü</strong>
+          <span class="amount" style="color: var(--success, #4ade80); font-size:1rem;">Kalan: ${money(remainingMoney)}</span>
+        </div>
+        <div style="color:var(--muted); font-size:0.85rem; display:flex; flex-direction:column; gap:3px; width:100%;">
+          <div>⏳ <strong>Ayın bitmesine kalan gün:</strong> ${remainingDays} gün</div>
+          <div>💡 <strong>Hedefe ulaşmak için günlük kazanman gereken:</strong> <strong style="color:var(--text);">${money(dailyMoneyNeeded)} / gün</strong></div>
+        </div>
+      </div>
+    `;
+
+    $('goalBreakdownRows').innerHTML = summaryCard + (rows || '<p class="muted">Henüz iş türü veya tarife eklenmemiş.</p>');
+        }
 
   $('reportPeriod').onchange=renderReport;
   function renderReport(){const mode=$('reportPeriod').value,d=today(),year=d.slice(0,4),month=d.slice(0,7);let list=earnings.filter(x=>mode==='all'||(mode==='day'&&x.work_date===d)||(mode==='month'&&x.work_date.startsWith(month))||(mode==='year'&&x.work_date.startsWith(year)));if(mode==='week'){const n=new Date();n.setDate(n.getDate()-(n.getDay()+6)%7);const start=`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`;list=earnings.filter(x=>x.work_date>=start&&x.work_date<=d);} $('reportTotal').textContent=money(sum(list));$('reportLabel').textContent=({day:'Bugünün toplamı',week:'Bu haftanın toplamı',month:'Bu ayın toplamı',year:'Bu yılın toplamı',all:'Tüm zamanlar'})[mode];const groups={};list.forEach(x=>{const k=mode==='day'?x.work_date:mode==='week'?x.work_date:mode==='month'?x.work_date.slice(0,7):mode==='year'?x.work_date.slice(0,7):x.work_date.slice(0,7);groups[k]=(groups[k]||0)+Number(x.total_amount)});$('reportRows').innerHTML=Object.entries(groups).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,12).map(([k,v])=>`<div class="item"><div><strong>${escapeHtml(k)}</strong><small>${mode==='day'||mode==='week'?'Günlük toplam':'Dönem toplamı'}</small></div><span class="amount">${money(v)}</span></div>`).join('')||'<p class="muted">Bu dönemde henüz kayıt yok.</p>';}
